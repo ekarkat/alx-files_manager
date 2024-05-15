@@ -29,34 +29,17 @@ class UsersController {
   }
 
   static async getMe(req, res) {
-    const token = req.headers['x-token'];
-
-    if (!token) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const key = `auth_${token}`;
-    const userId = await redis.get(key);
+    const token = req.header('X-Token');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const userId = await redis.get(`auth_${token}`);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    let user;
+    const users = await dbClient.dbClient.collection('users');
+    const ObjId = new ObjectId(userId);
 
-    try {
-      user = await dbClient.client
-        .db()
-        .collection('users')
-        .findOne({ _id: ObjectId(userId) });
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Internal Server Error' });
-    }
-
-    if (!user) {
-      console.error(`User not found for id: ${userId}`);
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    return res.status(200).json({ id: user._id, email: user.email });
+    const user = await users.findOne({ _id: ObjId });
+    if (user) return res.status(200).json({ id: userId, email: user.email });
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 }
 
